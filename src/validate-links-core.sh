@@ -4,7 +4,7 @@
 # https://github.com/fidpa/bash-markdown-link-validator
 #
 # validate-links-core.sh - Link Validation Library
-# Version: 1.0.0
+# Version: 1.0.1
 # shellcheck disable=SC2034  # Exported variables used by callers
 #
 # Features:

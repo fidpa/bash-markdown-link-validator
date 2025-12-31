@@ -144,6 +144,15 @@ Unlike other tools that only do exact matching, this validator handles:
 
 ---
 
+## 📁 Examples
+
+| Example | Use Case |
+|---------|----------|
+| [basic-wrapper.sh](examples/basic-wrapper.sh) | Single directory (e.g., `docs/`) |
+| [multi-area-wrapper.sh](examples/multi-area-wrapper.sh) | Multiple areas (e.g., DIATAXIS: tutorial, how-to, reference, explanation) |
+
+---
+
 ## 🔗 Requirements
 
 - **Bash 4.0+** (for associative arrays)

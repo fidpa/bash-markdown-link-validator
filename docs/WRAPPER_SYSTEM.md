@@ -6,6 +6,29 @@ The wrapper system enables DRY validation of multiple documentation areas using 
 
 ---
 
+## 📁 Ready-to-Use Examples
+
+This repository includes two example wrappers:
+
+| Example | Lines | Use Case |
+|---------|-------|----------|
+| [basic-wrapper.sh](../examples/basic-wrapper.sh) | ~60 | **Single directory** - validates one folder (e.g., `docs/`) |
+| [multi-area-wrapper.sh](../examples/multi-area-wrapper.sh) | ~150 | **Multiple directories** - iterates over several areas with aggregated results |
+
+### When to Use Which
+
+**basic-wrapper.sh** - Choose this if:
+- You have a single `docs/` folder
+- You want one wrapper per area (DRY via library)
+- Simple setup, minimal code
+
+**multi-area-wrapper.sh** - Choose this if:
+- You have multiple doc areas (DIATAXIS: tutorial, how-to, reference, explanation)
+- You want one script to validate everything
+- You need aggregated pass/fail results for CI/CD
+
+---
+
 ## 🎯 Architecture
 
 ```
