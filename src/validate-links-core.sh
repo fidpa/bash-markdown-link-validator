@@ -4,7 +4,7 @@
 # https://github.com/fidpa/bash-markdown-link-validator
 #
 # validate-links-core.sh - Link Validation Library
-# Version: 1.0.1
+# Version: 1.1.0
 # shellcheck disable=SC2034  # Exported variables used by callers
 #
 # Features:
@@ -35,6 +35,7 @@ declare -gi total_links_internal=0
 declare -gi valid_links_internal=0
 declare -gi deep_path_warnings=0
 declare -gi auto_todo_fixes=0
+declare -gi skipped_external_urls=0
 
 # Anchor cache (associative array)
 declare -gA ANCHOR_CACHE
@@ -83,6 +84,21 @@ setup_colors() {
 }
 
 # ============================================================================
+# PLATFORM COMPATIBILITY
+# ============================================================================
+
+# Platform-agnostic sed in-place editing
+sed_inplace() {
+    if sed --version 2>&1 | grep -q GNU; then
+        # GNU sed (Linux)
+        sed -i "$@"
+    else
+        # BSD sed (macOS)
+        sed -i '' "$@"
+    fi
+}
+
+# ============================================================================
 # ANCHOR HANDLING (Caching)
 # ============================================================================
 
@@ -121,10 +137,13 @@ build_anchor_index() {
         fi
     done < "$file"
 
-    # Also extract explicit id="..." attributes
+    # Also extract explicit id="..." attributes (POSIX-compatible)
     local explicit_ids
-    explicit_ids=$(grep -oP 'id="\K[^"]+' "$file" 2>/dev/null || true)
-    [[ -n "$explicit_ids" ]] && anchors+="$explicit_ids"$'\n'
+    explicit_ids=$(grep -o 'id="[^"]*"' "$file" 2>/dev/null | sed 's/id="//;s/"$//' || true)
+    # Normalize IDs (same as headers)
+    while IFS= read -r id; do
+        [[ -n "$id" ]] && anchors+="$(normalize_anchor "$id")"$'\n'
+    done <<< "$explicit_ids"
 
     # Store in cache
     ANCHOR_CACHE[$file]="$anchors"
@@ -274,7 +293,7 @@ apply_batch_fix() {
         local escaped_link escaped_new_link
         escaped_link=$(escape_sed_pattern "$link")
         escaped_new_link=$(escape_sed_replacement "$new_link")
-        sed -i "s|${escaped_link}|${escaped_new_link}|g" -- "$source_file"
+        sed_inplace "s|${escaped_link}|${escaped_new_link}|g" -- "$source_file"
         return 0
     fi
 
@@ -307,7 +326,7 @@ mark_as_todo() {
     escaped_link=$(escape_sed_pattern "$link")
     local escaped_target
     escaped_target=$(escape_sed_replacement "\`$target_name.md\` (TODO: to create)")
-    sed -i "s|\[[^]]*\](${escaped_link})|${escaped_target}|g" -- "$source_file"
+    sed_inplace "s|\[[^]]*\](${escaped_link})|${escaped_target}|g" -- "$source_file"
 
     auto_todo_fixes=$((auto_todo_fixes + 1))
     echo -e "  ${CYAN}📝${NC} Line $line_num: Marked as TODO: $link"
@@ -352,11 +371,8 @@ validate_link() {
     local link="$2"
     local line_num="$3"
 
-    # Skip external links (http, ftp, mailto)
-    if [[ "$link" =~ ^https?:// ]] || [[ "$link" =~ ^ftp:// ]] || [[ "$link" =~ ^mailto: ]]; then
-        [[ $VERBOSE == true ]] && echo -e "  ${CYAN}⏭${NC}  Line $line_num: External link skipped: $link"
-        return 0
-    fi
+    # Note: External URLs (http/https/ftp/mailto) are now filtered early in scan_file()
+    # This function only handles file-based links
 
     # Check path depth and warn if too deep
     local path_depth
@@ -368,10 +384,10 @@ validate_link() {
     # Handle anchor-only links (same file)
     if [[ "$link" =~ ^#.* ]]; then
         if validate_anchor_exists "$source_file" "$link"; then
-            [[ $VERBOSE == true ]] && echo -e "  ${GREEN}✅${NC} Line $line_num: Anchor valid: $link"
+            [[ $OUTPUT_FORMAT != "json" ]] && [[ $VERBOSE == true ]] && echo -e "  ${GREEN}✅${NC} Line $line_num: Anchor valid: $link"
             return 0
         else
-            echo -e "  ${RED}❌${NC} Line $line_num: Anchor not found: $link"
+            [[ $OUTPUT_FORMAT != "json" ]] && echo -e "  ${RED}❌${NC} Line $line_num: Anchor not found: $link"
             # Add to JSON buffer
             [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$source_file\",\"line\":$line_num,\"link\":\"$link\",\"type\":\"anchor\"}")
             return 1
@@ -417,12 +433,14 @@ validate_link() {
             fi
         fi
 
-        if [[ "$is_external" == true ]]; then
-            echo -e "  ${RED}❌${NC} Line $line_num: External link broken: $file_path"
-            [[ $VERBOSE == true ]] && echo -e "      Resolved to: $target_path"
-        else
-            echo -e "  ${RED}❌${NC} Line $line_num: File not found: $file_path"
-            [[ $VERBOSE == true ]] && echo -e "      Resolved to: $target_path"
+        if [[ $OUTPUT_FORMAT != "json" ]]; then
+            if [[ "$is_external" == true ]]; then
+                echo -e "  ${RED}❌${NC} Line $line_num: External link broken: $file_path"
+                [[ $VERBOSE == true ]] && echo -e "      Resolved to: $target_path"
+            else
+                echo -e "  ${RED}❌${NC} Line $line_num: File not found: $file_path"
+                [[ $VERBOSE == true ]] && echo -e "      Resolved to: $target_path"
+            fi
         fi
 
         # Add to JSON buffer
@@ -433,7 +451,7 @@ validate_link() {
     # Check anchor if present
     if [[ -n "$anchor" ]]; then
         if ! validate_anchor_exists "$target_path" "$anchor"; then
-            echo -e "  ${YELLOW}⚠️${NC}  Line $line_num: Anchor not found: $anchor in $file_path"
+            [[ $OUTPUT_FORMAT != "json" ]] && echo -e "  ${YELLOW}⚠️${NC}  Line $line_num: Anchor not found: $anchor in $file_path"
             [[ $OUTPUT_FORMAT == "json" ]] && JSON_WARNINGS+=("{\"file\":\"$source_file\",\"line\":$line_num,\"link\":\"$link\",\"type\":\"anchor_not_found\"}")
             return 2  # Warning, not error
         fi
@@ -441,12 +459,12 @@ validate_link() {
 
     # Warn about links to archive (deprecated content)
     if [[ "$target_path" == *"/archive/"* ]]; then
-        [[ $VERBOSE == true ]] && \
+        [[ $OUTPUT_FORMAT != "json" ]] && [[ $VERBOSE == true ]] && \
             echo -e "  ${YELLOW}⚠️${NC}  Line $line_num: Link to archive (deprecated): $file_path"
     fi
 
     # Enhanced verbose output for external links
-    if [[ $VERBOSE == true ]]; then
+    if [[ $OUTPUT_FORMAT != "json" ]] && [[ $VERBOSE == true ]]; then
         if [[ "$is_external" == true ]]; then
             echo -e "  ${GREEN}✅${NC} Line $line_num: External link valid: $link"
         else
@@ -473,15 +491,15 @@ scan_file() {
     # Get relative path from area directory
     relative_file=$(realpath --relative-to="$AREA_DIR" "$file" 2>/dev/null || basename "$file")
 
-    echo -e "${BLUE}Scanning:${NC} $relative_file"
+    [[ $OUTPUT_FORMAT != "json" ]] && echo -e "${BLUE}Scanning:${NC} $relative_file"
 
     local file_broken=0
     local file_links=0
     local file_valid=0
 
-    # Process each line with links
+    # Process each line with links (non-greedy link text match)
     local grep_output
-    grep_output=$(grep -n '\[.*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
+    grep_output=$(grep -n '\[[^]]*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
 
     if [[ -n "$grep_output" ]]; then
         while IFS=: read -r line_num line_content; do
@@ -489,12 +507,19 @@ scan_file() {
 
             # Extract links from this line
             local links
-            links=$(echo "$line_content" | grep -o '\[.*\]([^)]*.md[^)]*)' | \
+            links=$(echo "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
                 sed 's/.*](\([^)]*\)).*/\1/' || true)
 
             # Validate each link
             while IFS= read -r link; do
                 [[ -z "$link" ]] && continue
+
+                # Skip external URLs (http/https/ftp/mailto) early - don't count in total_links
+                if [[ "$link" =~ ^https?:// ]] || [[ "$link" =~ ^ftp:// ]] || [[ "$link" =~ ^mailto: ]]; then
+                    skipped_external_urls=$((skipped_external_urls + 1))
+                    [[ $OUTPUT_FORMAT != "json" ]] && [[ $VERBOSE == true ]] && echo -e "  ${CYAN}⏭${NC}  Line $line_num: External link skipped: $link"
+                    continue
+                fi
 
                 file_links=$((file_links + 1))
                 total_links=$((total_links + 1))
@@ -528,7 +553,7 @@ scan_file() {
         done <<< "$grep_output"
     fi
 
-    if [[ $file_links -gt 0 ]]; then
+    if [[ $file_links -gt 0 ]] && [[ $OUTPUT_FORMAT != "json" ]]; then
         local success_rate=$((file_valid * 100 / file_links))
         if [[ $file_broken -eq 0 ]]; then
             echo -e "  ${GREEN}✓${NC} $file_links links, all valid (${success_rate}%)"
@@ -565,10 +590,11 @@ scan_file_parallel() {
     local file_warnings=0
     local file_deep_path=0
     local file_auto_todo=0
+    local file_skipped_external=0
 
-    # Process each line with links
+    # Process each line with links (non-greedy link text match)
     local grep_output
-    grep_output=$(grep -n '\[.*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
+    grep_output=$(grep -n '\[[^]]*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
 
     if [[ -n "$grep_output" ]]; then
         while IFS=: read -r line_num line_content; do
@@ -576,12 +602,18 @@ scan_file_parallel() {
 
             # Extract links from this line
             local links
-            links=$(echo "$line_content" | grep -o '\[.*\]([^)]*.md[^)]*)' | \
+            links=$(echo "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
                 sed 's/.*](\([^)]*\)).*/\1/' || true)
 
             # Validate each link
             while IFS= read -r link; do
                 [[ -z "$link" ]] && continue
+
+                # Skip external URLs (http/https/ftp/mailto) early - don't count in file_links
+                if [[ "$link" =~ ^https?:// ]] || [[ "$link" =~ ^ftp:// ]] || [[ "$link" =~ ^mailto: ]]; then
+                    file_skipped_external=$((file_skipped_external + 1))
+                    continue
+                fi
 
                 file_links=$((file_links + 1))
 
@@ -624,11 +656,11 @@ scan_file_parallel() {
     fi
 
     # Write stats to output file (single write operation)
-    # Include warnings, deep_path, auto_todo in stats
+    # Include warnings, deep_path, auto_todo, skipped_external in stats
     {
-        printf "STATS: files=1 links=%d valid=%d broken=%d internal=%d external=%d warnings=%d deep=%d todo=%d\n" \
+        printf "STATS: files=1 links=%d valid=%d broken=%d internal=%d external=%d warnings=%d deep=%d todo=%d skipped=%d\n" \
             "$file_links" "$file_valid" "$file_broken" "$file_internal" "$file_external" \
-            "$file_warnings" "$file_deep_path" "$file_auto_todo"
+            "$file_warnings" "$file_deep_path" "$file_auto_todo" "$file_skipped_external"
         printf "%s" "$output"
     } > "$output_file"
 }
@@ -655,19 +687,20 @@ aggregate_parallel_stats() {
         stats_line=$(grep "^STATS:" "$output_file" 2>/dev/null || true)
         [[ -z "$stats_line" ]] && continue
 
-        # Parse stats
-        # Include warnings, deep, todo fields
+        # Parse stats (POSIX-compatible)
+        # Include warnings, deep, todo, skipped fields
         local file_files file_links file_valid file_broken file_internal file_external
-        local file_warnings file_deep file_todo
-        file_files=$(echo "$stats_line" | grep -oP 'files=\K[0-9]+' || echo 0)
-        file_links=$(echo "$stats_line" | grep -oP 'links=\K[0-9]+' || echo 0)
-        file_valid=$(echo "$stats_line" | grep -oP 'valid=\K[0-9]+' || echo 0)
-        file_broken=$(echo "$stats_line" | grep -oP 'broken=\K[0-9]+' || echo 0)
-        file_internal=$(echo "$stats_line" | grep -oP 'internal=\K[0-9]+' || echo 0)
-        file_external=$(echo "$stats_line" | grep -oP 'external=\K[0-9]+' || echo 0)
-        file_warnings=$(echo "$stats_line" | grep -oP 'warnings=\K[0-9]+' || echo 0)
-        file_deep=$(echo "$stats_line" | grep -oP 'deep=\K[0-9]+' || echo 0)
-        file_todo=$(echo "$stats_line" | grep -oP 'todo=\K[0-9]+' || echo 0)
+        local file_warnings file_deep file_todo file_skipped
+        file_files=$(echo "$stats_line" | sed -n 's/.*files=\([0-9]*\).*/\1/p'); [[ -z "$file_files" ]] && file_files=0
+        file_links=$(echo "$stats_line" | sed -n 's/.*links=\([0-9]*\).*/\1/p'); [[ -z "$file_links" ]] && file_links=0
+        file_valid=$(echo "$stats_line" | sed -n 's/.*valid=\([0-9]*\).*/\1/p'); [[ -z "$file_valid" ]] && file_valid=0
+        file_broken=$(echo "$stats_line" | sed -n 's/.*broken=\([0-9]*\).*/\1/p'); [[ -z "$file_broken" ]] && file_broken=0
+        file_internal=$(echo "$stats_line" | sed -n 's/.*internal=\([0-9]*\).*/\1/p'); [[ -z "$file_internal" ]] && file_internal=0
+        file_external=$(echo "$stats_line" | sed -n 's/.*external=\([0-9]*\).*/\1/p'); [[ -z "$file_external" ]] && file_external=0
+        file_warnings=$(echo "$stats_line" | sed -n 's/.*warnings=\([0-9]*\).*/\1/p'); [[ -z "$file_warnings" ]] && file_warnings=0
+        file_deep=$(echo "$stats_line" | sed -n 's/.*deep=\([0-9]*\).*/\1/p'); [[ -z "$file_deep" ]] && file_deep=0
+        file_todo=$(echo "$stats_line" | sed -n 's/.*todo=\([0-9]*\).*/\1/p'); [[ -z "$file_todo" ]] && file_todo=0
+        file_skipped=$(echo "$stats_line" | sed -n 's/.*skipped=\([0-9]*\).*/\1/p'); [[ -z "$file_skipped" ]] && file_skipped=0
 
         # Update global counters
         total_files=$((total_files + file_files))
@@ -678,10 +711,11 @@ aggregate_parallel_stats() {
         total_links_external=$((total_links_external + file_external))
         valid_links_internal=$((valid_links_internal + file_internal))
         valid_links_external=$((valid_links_external + file_external))
-        # Aggregate warnings, deep_path, auto_todo
+        # Aggregate warnings, deep_path, auto_todo, skipped_external
         warnings=$((warnings + file_warnings))
         deep_path_warnings=$((deep_path_warnings + file_deep))
         auto_todo_fixes=$((auto_todo_fixes + file_todo))
+        skipped_external_urls=$((skipped_external_urls + file_skipped))
 
         # Print output (excluding STATS line)
         grep -v "^STATS:" "$output_file" || true
@@ -824,6 +858,7 @@ parse_args() {
 # ============================================================================
 
 print_validation_header() {
+    [[ $OUTPUT_FORMAT == "json" ]] && return  # Skip header in JSON mode
     echo "========================================"
     echo "Link Validation Report - $AREA_NAME"
     echo "========================================"
@@ -867,6 +902,9 @@ print_summary_report() {
     # Show auto-TODO fixes
     [[ $auto_todo_fixes -gt 0 ]] && echo "Auto-TODO fixes: $auto_todo_fixes"
 
+    # Show skipped external URLs
+    [[ $skipped_external_urls -gt 0 ]] && echo "Skipped external URLs: $skipped_external_urls"
+
     if [[ $total_links -gt 0 ]]; then
         local success_rate=$((valid_links * 100 / total_links))
         echo "Success rate: ${success_rate}%"
@@ -899,6 +937,7 @@ print_json_report() {
     "warnings": $warnings,
     "deep_path_warnings": $deep_path_warnings,
     "auto_todo_fixes": $auto_todo_fixes,
+    "skipped_external_urls": $skipped_external_urls,
     "success_rate": $success_rate
   },
   "broken_links": [

@@ -159,7 +159,14 @@ Unlike other tools that only do exact matching, this validator handles:
 - **Standard Unix Tools**: `grep`, `sed`, `find`
 - **Optional**: `realpath`, `git`
 
-Works on: Linux, macOS, WSL2, any POSIX-compliant system
+## 🖥️ Platform Support
+
+- ✅ **Linux**: Full support (GNU tools)
+- ✅ **macOS**: Full support (since v1.1.0 - POSIX-compatible)
+- ✅ **WSL2**: Full support
+- ⚠️ **Generic POSIX**: Partial (requires Bash 4.0+)
+
+**Note**: Version 1.0.x required GNU-specific tools (`grep -oP`, `sed -i`, `readlink -f`). Version 1.1.0+ is fully POSIX-compatible and works on macOS without additional dependencies.
 
 ---
 

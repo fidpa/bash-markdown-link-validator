@@ -23,8 +23,8 @@ EXCLUDE_DIRS="archive|deprecated"       # Directories to exclude (regex)
 # PATH SETUP - Adjust if your project structure differs
 # ============================================================================
 
-# This script's directory (where your docs are)
-readonly AREA_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# This script's directory (where your docs are) - POSIX-compatible
+readonly AREA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # Project root (parent of docs)
 readonly PROJECT_ROOT="$(cd "$AREA_DIR/.." && pwd)"
