@@ -2,8 +2,14 @@
 
 **Fast, zero-dependency Markdown link validator with smart anchor resolution. Pure Bash.**
 
+[![GitHub Release](https://img.shields.io/github/v/release/fidpa/bash-markdown-link-validator?include_prereleases&sort=semver)](https://github.com/fidpa/bash-markdown-link-validator/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Bash 4.0+](https://img.shields.io/badge/bash-4.0%2B-green.svg)](https://www.gnu.org/software/bash/)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL2-blue)](https://github.com/fidpa/bash-markdown-link-validator#-platform-support)
+[![CI](https://github.com/fidpa/bash-markdown-link-validator/actions/workflows/lint.yml/badge.svg)](https://github.com/fidpa/bash-markdown-link-validator/actions/workflows/lint.yml)
+[![ShellCheck](https://img.shields.io/badge/shellcheck-passing-brightgreen)](https://www.shellcheck.net/)
+[![Dependencies](https://img.shields.io/badge/dependencies-zero-success)](https://github.com/fidpa/bash-markdown-link-validator#-requirements)
+[![Maintenance](https://img.shields.io/badge/maintenance-active-brightgreen)](https://github.com/fidpa/bash-markdown-link-validator/commits/main)
 
 ---
 

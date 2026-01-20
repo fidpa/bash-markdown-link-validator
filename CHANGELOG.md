@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-21
+
+### Added
+- **CI/CD Pipeline**: GitHub Actions workflows for automated testing and releases
+  - `lint.yml`: ShellCheck validation + Bash syntax check on every push/PR
+  - `release.yml`: Automatic GitHub Releases when tagging with `v*`
+- **ShellCheck Configuration**: `.shellcheckrc` with Best Practices 2025 settings
+- **Community Files**: CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md
+- **Documentation**: docs/README.md navigation hub for better discoverability
+- **README Badge**: CI status badge showing workflow results
+
+### Changed
+- **README**: Expanded badges from 2 to 8 (added Release, Platform, CI, ShellCheck, Dependencies, Maintenance)
+
 ## [1.1.0] - 2026-01-17
 
 ### Added
