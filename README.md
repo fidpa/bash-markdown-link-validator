@@ -1,4 +1,4 @@
-# bash-markdown-link-validator
+# Bash Markdown Link Validator
 
 **Fast, zero-dependency Markdown link validator with smart anchor resolution. Pure Bash.**
 
