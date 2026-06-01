@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-06-01
+
+### Fixed
+- **Uppercase umlaut anchors under non-UTF-8 locales**: `normalize_anchor()` now transliterates `Ä/Ö/Ü/ẞ` to ASCII *before* the lowercase step. Previously, `${var,,}` only lowercased uppercase umlauts in UTF-8 locales; under `LC_ALL=C` they survived, missed the lowercase transliterations, and were stripped by the `[^a-z0-9]` filter (e.g. a heading "Übersicht" produced the anchor `bersicht`). This caused false-positive "anchor not found" warnings for headings starting with an uppercase umlaut on systems with a non-UTF-8 locale.
+
 ## [1.2.0] - 2026-01-21
 
 ### Added

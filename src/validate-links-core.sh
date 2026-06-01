@@ -4,7 +4,7 @@
 # https://github.com/fidpa/bash-markdown-link-validator
 #
 # validate-links-core.sh - Link Validation Library
-# Version: 1.1.0
+# Version: 1.2.1
 # shellcheck disable=SC2034  # Exported variables used by callers
 #
 # Features:
@@ -106,6 +106,14 @@ normalize_anchor() {
     local anchor="$1"
     # Remove leading #
     anchor="${anchor#\#}"
+    # Transliterate UPPERCASE umlauts to ASCII FIRST (locale-independent).
+    # ${,,} below only lowercases Ä/Ö/Ü in UTF-8 locales; under a non-UTF-8
+    # locale (e.g. LC_ALL=C) they survive, miss the lowercase transliterations,
+    # and get deleted by the [^a-z0-9] filter → "Übersicht" becomes "bersicht".
+    anchor="${anchor//Ä/a}"
+    anchor="${anchor//Ö/o}"
+    anchor="${anchor//Ü/u}"
+    anchor="${anchor//ẞ/ss}"
     # Convert to lowercase (bash 4.0+)
     anchor="${anchor,,}"
     # Replace umlauts FIRST (before non-ASCII → -)
