@@ -10,6 +10,7 @@
 [![ShellCheck](https://img.shields.io/badge/shellcheck-passing-brightgreen)](https://www.shellcheck.net/)
 [![Dependencies](https://img.shields.io/badge/dependencies-zero-success)](https://github.com/fidpa/bash-markdown-link-validator#-requirements)
 [![Maintenance](https://img.shields.io/badge/maintenance-active-brightgreen)](https://github.com/fidpa/bash-markdown-link-validator/commits/main)
+![Last Commit](https://img.shields.io/github/last-commit/fidpa/bash-markdown-link-validator)
 
 ---
 
@@ -23,6 +24,7 @@ Validates 2,271 Markdown files with zero Node/Python/Rust dependencies. Pure Bas
 
 - **Zero External Dependencies** - Pure Bash, no npm/pip/cargo installs required
 - **Smart Anchor Resolution** - Suffix-match, umlaut normalization, numbered sections
+- **Code-Block Aware** - Skips links inside fenced and inline code (no false positives from examples)
 - **Parallel Processing** - Configurable job count for large documentation sets
 - **JSON Output** - CI/CD ready with machine-readable output
 - **Wrapper System** - Multi-area validation with DRY principle

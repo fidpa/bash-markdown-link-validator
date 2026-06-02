@@ -4,7 +4,7 @@
 # https://github.com/fidpa/bash-markdown-link-validator
 #
 # validate-links-core.sh - Link Validation Library
-# Version: 1.2.1
+# Version: 1.2.2
 # shellcheck disable=SC2034  # Exported variables used by callers
 #
 # Features:
@@ -13,6 +13,7 @@
 # - JSON output for CI/CD integration
 # - Batch-fix mode for link pattern replacement
 # - Deep path warnings and auto-TODO marking
+# - Code-block awareness (skips links inside fenced and inline code)
 
 set -uo pipefail  # NO set -e!
 
@@ -492,6 +493,54 @@ validate_link() {
 # FILE SCANNING (Sequential)
 # ============================================================================
 
+# ============================================================================
+# CODE-BLOCK AWARENESS (skip links inside fenced/inline code)
+# ============================================================================
+
+# Return the line numbers that fall inside fenced code blocks (``` or ~~~),
+# space-separated. Honors variable fence length per CommonMark: a block opened
+# with N fence chars is only closed by a line with >= N identical chars and no
+# info string -- so a 4-backtick example block may contain literal 3-backtick
+# blocks without closing prematurely.
+compute_code_block_lines() {
+    local file="$1"
+    local fence_re='^[[:space:]]{0,3}(`{3,}|~{3,})'
+    local in_fence=""        # empty = outside; otherwise "char:len"
+    local lineno=0
+    local result=""
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        lineno=$((lineno + 1))
+        if [[ "$line" =~ $fence_re ]]; then
+            local marker="${BASH_REMATCH[1]}"
+            local fchar="${marker:0:1}"
+            local flen="${#marker}"
+            if [[ -z "$in_fence" ]]; then
+                in_fence="${fchar}:${flen}"
+                result+=" $lineno"
+            else
+                local cur_char="${in_fence%%:*}"
+                local cur_len="${in_fence##*:}"
+                local rest="${line#*"$marker"}"
+                if [[ "$fchar" == "$cur_char" ]] && [[ $flen -ge $cur_len ]] && [[ "$rest" =~ ^[[:space:]]*$ ]]; then
+                    in_fence=""   # closing fence
+                fi
+                result+=" $lineno"
+            fi
+        elif [[ -n "$in_fence" ]]; then
+            result+=" $lineno"
+        fi
+    done < "$file"
+
+    echo "$result"
+}
+
+# Strip inline-code spans (`...`) from a line so links inside them are not
+# treated as real links (e.g. format examples in documentation-about-docs).
+strip_inline_code() {
+    printf '%s' "$1" | sed 's/`[^`]*`//g'
+}
+
 scan_file() {
     local file="$1"
     local relative_file
@@ -509,13 +558,19 @@ scan_file() {
     local grep_output
     grep_output=$(grep -n '\[[^]]*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
 
+    # Lines inside fenced code blocks (skipped - example content, not real links)
+    local cb_lines
+    cb_lines=$(compute_code_block_lines "$file")
+
     if [[ -n "$grep_output" ]]; then
         while IFS=: read -r line_num line_content; do
             [[ -z "$line_content" ]] && continue
+            # Skip links inside fenced code blocks
+            [[ " $cb_lines " == *" $line_num "* ]] && continue
 
-            # Extract links from this line
+            # Extract links from this line (strip inline-code spans first)
             local links
-            links=$(echo "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
+            links=$(strip_inline_code "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
                 sed 's/.*](\([^)]*\)).*/\1/' || true)
 
             # Validate each link
@@ -604,13 +659,19 @@ scan_file_parallel() {
     local grep_output
     grep_output=$(grep -n '\[[^]]*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
 
+    # Lines inside fenced code blocks (skipped - example content, not real links)
+    local cb_lines
+    cb_lines=$(compute_code_block_lines "$file")
+
     if [[ -n "$grep_output" ]]; then
         while IFS=: read -r line_num line_content; do
             [[ -z "$line_content" ]] && continue
+            # Skip links inside fenced code blocks
+            [[ " $cb_lines " == *" $line_num "* ]] && continue
 
-            # Extract links from this line
+            # Extract links from this line (strip inline-code spans first)
             local links
-            links=$(echo "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
+            links=$(strip_inline_code "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
                 sed 's/.*](\([^)]*\)).*/\1/' || true)
 
             # Validate each link
@@ -677,7 +738,8 @@ scan_file_parallel() {
 export -f scan_file_parallel validate_link resolve_relative_path normalize_anchor \
     build_anchor_index validate_anchor_exists count_path_depth warn_deep_path \
     normalize_relative_path apply_batch_fix mark_as_todo \
-    escape_sed_pattern escape_sed_replacement
+    escape_sed_pattern escape_sed_replacement \
+    compute_code_block_lines strip_inline_code
 
 # ============================================================================
 # STATS AGGREGATION (Parallel Mode)
