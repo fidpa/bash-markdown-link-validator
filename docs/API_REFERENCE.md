@@ -590,4 +590,4 @@ echo "Found ${#files[@]} files"
 
 ---
 
-**Version**: 1.0.1
+**Version**: 1.2.3

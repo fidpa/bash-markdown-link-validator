@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-08-08
+
+### Changed
+- **Release notes now come from the changelog instead of being generated**: `release.yml` extracts the `## [X.Y.Z]` section from `CHANGELOG.md` and uses it as the release body. Previously the workflow used `generate_release_notes: true`, which lists merged *pull requests* — and this project has never had one, since changes go straight to `main`. The result was that v1.2.0, v1.2.1 and v1.2.2 all published a release body consisting of nothing but a compare link (97 characters for v1.2.2, against 605 characters of curated changelog for the same version). The workflow now fails loudly if no changelog section matches the tag, rather than publishing an empty release.
+- **`.shellcheckrc` documents this project**: the file was carried over from an unrelated setup and its header described that setup's machines and script counts. The directives are unchanged (`disable=SC1090,SC1091`, `shell=bash`, `source-path=SCRIPTDIR`, `external-sources=true`, `severity=warning`); only the comments were rewritten, and they now note that CI overrides the severity with `--severity=error`.
+- **Issue templates reference the actual library**: the bug report and feature request templates still carried placeholder names (`src/your-library.sh`, `src/new-library.sh`) from a generic Bash toolkit template. The bug report now asks for the reporter's locale, because anchor normalization is locale-sensitive (see 1.2.1), and its reproducer skeleton is a real wrapper.
+
+### Fixed
+- **`docs/API_REFERENCE.md` reported version 1.0.1**: the footer had not been updated since 1.0.1 and therefore documented `sed_inplace()`, `skipped_external_urls`, `compute_code_block_lines()` and `strip_inline_code()` under a version that predates all of them. The version is now set in the same release step as the library header.
+
+### Added
+- **Community health files**: issue templates (bug report, feature request), an issue template config pointing at Security Advisories and Discussions, and a pull request template.
+
 ## [1.2.2] - 2026-06-02
 
 ### Fixed

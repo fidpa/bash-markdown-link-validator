@@ -1,7 +1,10 @@
-# .shellcheckrc - Pi-Router + NAS Server shellcheck config
-# Multi-Device Setup: 552 Shell-Scripts (Pi 5: ~249, NAS: ~303)
-# Best Practices 2025 compliant
-# Optimized for ShellCheck 0.9.0+ (Last reviewed: 12. Dezember 2025)
+# .shellcheckrc - bash-markdown-link-validator
+# https://github.com/fidpa/bash-markdown-link-validator
+#
+# Applies to src/, examples/ and install.sh. Note that the CI workflow
+# (.github/workflows/lint.yml) passes --severity=error on the command line,
+# which overrides the severity setting below: the gate is stricter here than
+# in CI, deliberately.
 #
 # References:
 # - https://www.shellcheck.net/wiki/Directive
@@ -14,40 +17,33 @@
 
 # SC1090: Can't follow non-constant source
 # SC1091: Not following sourced file
-# Rationale: Scripts use dynamic library paths (e.g., ${SCRIPT_DIR}/../lib/)
-#            shellcheck cannot resolve these at static analysis time
-# Example: source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/logging.sh"
+# Rationale: wrappers source the library through a configurable path, e.g.
+#            LIBRARY_PATH="${HOME}/.local/lib/bash-markdown-link-validator/..."
+#            shellcheck cannot resolve these at static analysis time.
 disable=SC1090,SC1091
 
 # ============================================================================
 # OPTIONAL CHECKS
 # ============================================================================
 
-# NOT using enable=all (Best Practice 2025)
-# Reason: enable=all activates subjective/conflicting optional checks
-#         meant for discovery only, not production
-# Instead: Selectively enable specific optional checks if needed
+# NOT using enable=all: it activates subjective and partly conflicting optional
+# checks meant for discovery, not for a release gate. Enable individual checks
+# here if a concrete need arises.
 #
-# Available optional checks (use shellcheck --list-optional):
-# - avoid-nullary-conditions, deprecate-which, quote-safe-variables, etc.
-
-# No optional checks enabled (Production default)
+# List them with: shellcheck --list-optional
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-# Shell dialect (Raspberry Pi OS Bookworm: bash 5.2.15, Ubuntu 24.04: bash 5.2.21)
+# The library requires Bash 4.0+ (associative arrays, ${var,,}, mapfile).
 shell=bash
 
-# Source path for library resolution
-# SCRIPTDIR = directory of currently checked script
+# Resolve sourced files relative to the directory of the script being checked.
 source-path=SCRIPTDIR
 
-# Allow following source statements (Best Practice 2025)
-# Safely enables shellcheck to open sourced files where possible
+# Let shellcheck open sourced files where the path is resolvable.
 external-sources=true
 
-# Minimum severity threshold (focus on errors + warnings)
-# Consistent with script-audit.sh Production-Ready threshold (85%+ clean)
+# Report errors and warnings. CI narrows this to errors only.
 severity=warning
