@@ -142,10 +142,17 @@ normalize_anchor <anchor>
 
 **Algorithm**:
 1. Remove leading `#`
-2. Convert to lowercase
-3. Replace umlauts (ß→ss, ü→u, ö→o, ä→a)
-4. Replace non-alphanumeric with `-`
-5. Remove duplicate/trailing `-`
+2. Transliterate uppercase umlauts (Ä→a, Ö→o, Ü→u, ẞ→ss)
+3. Convert to lowercase
+4. Replace lowercase umlauts (ß→ss, ü→u, ö→o, ä→a)
+5. Remove everything that is not `a-z`, `0-9`, a space or `-` — this is
+   GitHub's rule: punctuation and symbols are dropped, not turned into hyphens
+6. Turn spaces into `-`
+7. Collapse repeated `-` and trim leading/trailing `-`
+
+Steps 6 and 7 go beyond GitHub, which keeps repeated and edge hyphens. They
+apply to the heading and the link alike, so they only make the comparison more
+forgiving; a link written the way GitHub renders it always matches.
 
 **Example**:
 ```bash
@@ -153,10 +160,13 @@ normalize_anchor "#My Section Title"
 # Output: my-section-title
 
 normalize_anchor "API Reference (v2.0)"
-# Output: api-reference-v2-0
+# Output: api-reference-v20
 
 normalize_anchor "Größe und Übersicht"
 # Output: grosse-und-ubersicht
+
+normalize_anchor "Warum SECURITY.md?"
+# Output: warum-securitymd
 ```
 
 ---
@@ -342,6 +352,11 @@ validate_link <source_file> <link> <line_num>
 | `1` | Link broken |
 | `2` | Warning (anchor not found, but file exists) |
 | `3` | External link valid |
+
+**Directory Links**:
+A link whose target is a directory containing a `README.md` (`[systemd](../reference/systemd/)`)
+resolves to that `README.md`, the file a Markdown renderer shows for it. A directory
+without a `README.md` stays a broken link.
 
 **Skipped Links**:
 - `https://`, `http://`, `ftp://`, `mailto:`

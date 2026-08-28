@@ -79,7 +79,7 @@ But the anchor exists in the file.
 
 <!-- Link uses: -->
 [Link](#api-reference-(v2.0))  <!-- Wrong: parentheses -->
-[Link](#api-reference-v2-0)    <!-- Correct: normalized -->
+[Link](#api-reference-v20)     <!-- Correct: normalized -->
 ```
 
 **c) Umlauts (German characters)**
@@ -89,6 +89,15 @@ But the anchor exists in the file.
 
 <!-- Link should use: -->
 [Link](#grosse-und-ubersicht)  <!-- Umlauts → ASCII -->
+```
+
+**d) Punctuation in the heading**
+```markdown
+<!-- File has: -->
+## Warum SECURITY.md?
+
+<!-- Link should use: -->
+[Link](#warum-securitymd)  <!-- punctuation is removed, not hyphenated -->
 ```
 
 **Debug**: Check how anchors are normalized:

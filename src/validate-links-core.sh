@@ -21,7 +21,7 @@ set -uo pipefail  # NO set -e!
 # sourced by a wrapper and a wrapper may source it more than once; a second
 # `readonly` on the same name writes an error to stderr, which would end up in
 # the JSON stream.
-[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.3.0"
+[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.4.0"
 
 # ============================================================================
 # GLOBAL VARIABLES (Exported for background jobs)
@@ -129,8 +129,17 @@ normalize_anchor() {
     anchor="${anchor//ü/u}"
     anchor="${anchor//ö/o}"
     anchor="${anchor//ä/a}"
-    # Replace non-alphanumeric with -, remove duplicate/trailing -
-    echo "$anchor" | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-\|-$//g'
+    # Follow GitHub's rule: punctuation and symbols are REMOVED and only spaces
+    # become hyphens. Replacing every special character with a hyphen turned
+    # "## Warum SECURITY.md?" into "warum-security-md-" instead of
+    # "warum-securitymd", so a table of contents written the way GitHub renders
+    # it counted as broken. Collapsing and trimming hyphens stays: it applies to
+    # the heading and the link alike and only makes the check more forgiving.
+    # LC_ALL=C forces byte-wise processing -- under a UTF-8 locale GNU sed
+    # leaves four-byte characters (emoji such as U+1F195) inside the negated
+    # class, under C it does not. The umlauts are already transliterated at this
+    # point, so nothing is lost.
+    echo "$anchor" | LC_ALL=C sed 's/[^a-z0-9 -]//g; s/ /-/g; s/--*/-/g; s/^-*//; s/-*$//'
 }
 
 build_anchor_index() {
@@ -437,6 +446,13 @@ validate_link() {
     # shellcheck disable=SC2153  # AREA_DIR is set by caller script before sourcing
     if [[ ! "$target_path" =~ ^"$AREA_DIR" ]]; then
         is_external=true
+    fi
+
+    # Resolve directory links. GitHub and every Markdown renderer show a
+    # directory's README.md for [Text](path/); without this branch such a link
+    # is reported as "File not found".
+    if [[ -d "$target_path" ]] && [[ -f "$target_path/README.md" ]]; then
+        target_path="$target_path/README.md"
     fi
 
     # Check if file exists

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-28: Directory links and GitHub's anchor rule stop producing false findings
+
+### Added
+- **A link to a directory resolves to its `README.md`**: `[systemd](../reference/systemd/)` was reported as `File not found` even though the directory existed and contained a `README.md`, the file GitHub and every other Markdown renderer show for such a link. `validate_link()` now redirects a directory target to `<dir>/README.md` before the existence check. A directory without a `README.md` stays a broken link, because there is no page to land on. Measured over the tree the library grew up in: 10 findings across 9 files, every one of them a directory that existed and carried a `README.md`.
+
+### Fixed
+- **`normalize_anchor()` follows GitHub's rule for punctuation**: it replaced *every* character outside `a-z0-9` with a hyphen, so the heading `## Warum SECURITY.md?` produced `warum-security-md`. GitHub removes punctuation and turns only spaces into hyphens, giving `warum-securitymd`. A table of contents written the way the page actually renders therefore counted as broken. The filter is now `s/[^a-z0-9 -]//g; s/ /-/g`; collapsing repeated hyphens and trimming the edges stays, because it applies to the heading and the link alike and only makes the comparison more forgiving.
+- **Emoji in a heading no longer depends on the locale**: the `sed` filter runs under `LC_ALL=C`. Under a UTF-8 locale GNU sed leaves four-byte characters inside a negated character class, so `## ⚙️ SystemD Tutorials 🆕` kept its `🆕` in the anchor while `⚙️` was dropped, and a correct link to it was reported. Under `LC_ALL=C` the filter works byte-wise and removes both. The umlauts are transliterated before this step, so nothing is lost. Measured on `de_DE.UTF-8` against `C`: the same heading produced `systemd-tutorials-3-tutorials-🆕` and `systemd-tutorials-3-tutorials`.
+
+### Changed
+- **`docs/API_REFERENCE.md` describes the algorithm that runs**: the `normalize_anchor()` steps listed four operations and omitted the uppercase-umlaut transliteration added in 1.2.1; the example output `api-reference-v2-0` is now `api-reference-v20`. The `validate_link()` entry gained the directory rule. `docs/TROUBLESHOOTING.md` carried the same outdated example and gains the punctuation case next to the umlaut one.
+
+- **The repository page shows the MIT licence, and licence-filtered searches find the project.** `LICENSE` carried the repository URL on its own line under the copyright notice. GitHub reads a licence text with an extra line as modified and reports `NOASSERTION`, which leaves the licence field on the repository page empty. The line is gone; the MIT text and the copyright notice are byte-for-byte unchanged, and the URL is still in `README.md`.
+
+### Upgrade notes
+- **The anchor change can turn warnings on links that were silently accepted before.** A link written for the old rule (`#2-5-troubleshooting` for the heading `## 2.5 Troubleshooting`) matched only because the heading was normalized the same wrong way. It does not work on GitHub and is now reported as `Anchor not found`. Measured over the tree the library grew up in: 36 such links surfaced, against 12 warnings that disappeared. They are genuine broken anchors, not regressions; the correct form is the one GitHub produces (`#25-troubleshooting`). Compare the warning count against the previous run before treating the change as a regression.
+- **The directory rule lowers the broken-link count.** Links to directories with a `README.md` were being reported all along; those findings disappear and a pipeline that failed on them can turn green.
+
 ## [1.3.0] - 2026-08-28: An installed copy can report its own version
 
 ### Added
