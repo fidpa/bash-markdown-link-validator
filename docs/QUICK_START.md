@@ -6,7 +6,7 @@ Zero-dependency Bash library for Markdown link validation with parallel processi
 
 ## 🎯 Overview
 
-**bash-markdown-link-validator** is a pure Bash solution for validating internal Markdown links. It was developed to solve the problem of broken documentation links in large projects (2,271+ files, 11,000+ links validated daily).
+**bash-markdown-link-validator** is a pure Bash solution for validating internal Markdown links. It was developed to solve the problem of broken documentation links in large projects (3,251 files and 16,646 links in the run it grew up in).
 
 ### Key Features
 
@@ -14,7 +14,7 @@ Zero-dependency Bash library for Markdown link validation with parallel processi
 - **Smart Anchor Resolution** - Suffix-match, umlaut normalization, numbered sections
 - **Parallel Processing** - Configurable job count for large documentation sets
 - **JSON Output** - CI/CD ready with machine-readable output
-- **Production Tested** - 2,271 files validated, 11 active deployments
+- **Production Tested** - 3,251 files validated, seven active deployments
 
 ---
 
@@ -142,6 +142,7 @@ Success rate: 99%
 | `-v, --verbose` | Show detailed output for all links |
 | `--no-color` | Disable colored output |
 | `-j N, --parallel-jobs=N` | Run N parallel jobs (default: 2) |
+| `-V, --version` | Print the library version and exit |
 | `--output-format=FORMAT` | Output format: text (default) or json |
 | `--fix-pattern=OLD:NEW` | Auto-fix links matching OLD pattern to NEW |
 | `--auto-todo` | Mark missing files as TODO |

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-28: An installed copy can report its own version
+
+### Added
+- **`--version` tells you which library a wrapper is running**: a copy installed under `~/.local/lib/` could only be identified by opening the file and reading a comment in its header. `parse_args()` now accepts `-V` and `--version` and prints `validate-links-core.sh <version>` before exiting with 0, the same way `--help` does.
+
+### Changed
+- **The version lives in one place instead of two**: `SCRIPT_VERSION` in `src/validate-links-core.sh` is the single source, and the `# Version:` comment in the file header is gone. The footer of `docs/API_REFERENCE.md` carried a second copy that was four releases behind until 1.2.3; it is replaced by a pointer to `--version`. The constant is guarded (`[[ -v SCRIPT_VERSION ]] || readonly ...`) because a wrapper may source the library more than once, and a second `readonly` on the same name writes to stderr, which would land in the JSON stream.
+- **The production figures in `README.md` and `docs/QUICK_START.md` describe a run that was measured**: they said 2,271 files and 11,000+ links "validated daily" across 11 deployments, in production "since July 2025". Measured on 2026-08-28 over the seven wrappers of the tree the library grew up in: 3,251 files, 16,646 links, 8,783 of them internal and validated. There are seven wrappers, not 11. Nothing schedules the run, so "daily" is gone. The first wrapper was committed on 2025-08-18, so the starting point is August 2025.
+
+### Fixed
+- **`--help` lists the options once**: a stray second `OPTIONS:` line split the option list in `show_usage()`, so everything from `--output-format` onwards looked like a separate group.
+
+### Upgrade notes
+- **A wrapper that writes `EXCLUDE_DIRS="a\|b"` with an escaped pipe stops excluding anything.** That form was the one that worked before 1.2.5, because the filter ran as a basic regular expression; under the extended one it is a literal `|`. Wrappers written that way exclude nothing from 1.2.5 onwards and will report more files, more links and possibly more broken links than before. The fix is to drop the backslashes: `EXCLUDE_DIRS="a|b"`. The `### Upgrade notes` block of 1.2.5 describes only the opposite direction, which is where this note belongs.
+
 ## [1.2.5] - 2026-08-28: EXCLUDE_DIRS with alternation excludes the directories it names
 
 ### Fixed

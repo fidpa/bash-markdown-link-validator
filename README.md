@@ -16,7 +16,7 @@
 
 ## ⚡ TL;DR
 
-Validates 2,271 Markdown files with zero Node/Python/Rust dependencies. Pure Bash, 11 active deployments, production-tested for 5+ months.
+Validates 3,251 Markdown files with zero Node/Python/Rust dependencies. Pure Bash, seven active deployments, in production since August 2025.
 
 ---
 
@@ -29,7 +29,7 @@ Validates 2,271 Markdown files with zero Node/Python/Rust dependencies. Pure Bas
 - **JSON Output** - CI/CD ready with machine-readable output
 - **Wrapper System** - Multi-area validation with DRY principle
 - **AI-Agent Ready** - Designed for Claude Code, Cursor, GitHub Copilot workflows
-- **Production Tested** - 2,271 files, 11,000+ links validated daily
+- **Production Tested** - 3,251 files and 16,646 links per run, 8,783 of them internal and validated
 
 ---
 
@@ -136,6 +136,7 @@ Unlike other tools that only do exact matching, this validator handles:
 | `-v, --verbose` | Show detailed output for all links |
 | `--no-color` | Disable colored output |
 | `-j N, --parallel-jobs=N` | Run N parallel jobs (default: 2) |
+| `-V, --version` | Print the library version and exit |
 | `--output-format=json` | JSON output for CI/CD |
 | `--fix-pattern=OLD:NEW` | Batch-fix links matching pattern |
 | `--auto-todo` | Mark missing files as TODO |
@@ -186,4 +187,4 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-Built with lessons learned from validating 2,271 Markdown files across 11 documentation areas. Production-tested since July 2025.
+Built with lessons learned from validating 3,251 Markdown files across seven documentation areas. In production since August 2025.

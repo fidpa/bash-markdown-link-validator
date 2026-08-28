@@ -43,6 +43,7 @@ Complete function reference for the link validation library (20+ functions).
 | `-v, --verbose` | Show detailed output for all links |
 | `--no-color` | Disable colored output |
 | `-j N, --parallel-jobs=N` | Run N parallel jobs (default: 2) |
+| `-V, --version` | Print the library version and exit |
 | `--output-format=json` | JSON output for CI/CD integration |
 | `--fix-pattern=OLD:NEW` | Batch-fix for link patterns |
 | `--auto-todo` | Mark missing files as TODO |
@@ -590,4 +591,5 @@ echo "Found ${#files[@]} files"
 
 ---
 
-**Version**: 1.2.5
+The version of an installed copy is what `--version` reports; this document
+tracks the library it ships with.

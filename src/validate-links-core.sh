@@ -4,7 +4,6 @@
 # https://github.com/fidpa/bash-markdown-link-validator
 #
 # validate-links-core.sh - Link Validation Library
-# Version: 1.2.5
 # shellcheck disable=SC2034  # Exported variables used by callers
 #
 # Features:
@@ -16,6 +15,13 @@
 # - Code-block awareness (skips links inside fenced and inline code)
 
 set -uo pipefail  # NO set -e!
+
+# The single source of the version. Reported by --version, written into the
+# JSON output, and set by the release process. Guarded because the library is
+# sourced by a wrapper and a wrapper may source it more than once; a second
+# `readonly` on the same name writes an error to stderr, which would end up in
+# the JSON stream.
+[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.3.0"
 
 # ============================================================================
 # GLOBAL VARIABLES (Exported for background jobs)
@@ -910,6 +916,10 @@ parse_args() {
                 WARM_CACHE=true
                 shift
                 ;;
+            -V|--version)
+                echo "validate-links-core.sh $SCRIPT_VERSION"
+                exit 0
+                ;;
             -h|--help)
                 show_usage
                 exit 0
@@ -1067,8 +1077,6 @@ OPTIONS:
     -v, --verbose                Show detailed output for all links
     --no-color                   Disable colored output
     -j N, --parallel-jobs=N      Run N parallel jobs (default: 2)
-
-    OPTIONS:
     --output-format=FORMAT       Output format: text (default) or json
     --fix-pattern=OLD:NEW        Auto-fix links matching OLD pattern to NEW
     --auto-todo                  Mark missing files as TODO (no git history check)
@@ -1076,6 +1084,7 @@ OPTIONS:
     --max-path-depth=N           Max ../ levels before warning (default: 5)
     --warm-cache                 Pre-build anchor cache for all files
 
+    -V, --version                Print the library version and exit
     -h, --help                   Show this help message
 
 EXAMPLES:
@@ -1084,6 +1093,7 @@ EXAMPLES:
     ./validate-links.sh --output-format=json       # JSON output for CI/CD
     ./validate-links.sh --fix-pattern="ref/ops/:ref/ops/emergency/"  # Batch fix
     ./validate-links.sh --auto-todo                # Auto-mark TODO for missing files
+    ./validate-links.sh --version                  # Which version is installed?
 
 EXIT CODES:
     0 - All links valid
