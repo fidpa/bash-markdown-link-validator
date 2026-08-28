@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-08-28: EXCLUDE_DIRS with alternation excludes the directories it names
+
+### Fixed
+- **`EXCLUDE_DIRS="archive|deprecated"` now skips both directories instead of neither**: `find_markdown_files()` filtered with `grep -v "/$exclude_dirs/"`, a basic regular expression in which `|` is a literal character, so the pattern matched no path and nothing was excluded. It is now `grep -vE "/($exclude_dirs)/"`. A single directory name (`EXCLUDE_DIRS="archive"`) behaved correctly before and is unaffected. Measured on a fixture with `archive/`, `deprecated/`, `drafts/` and `keep/`: the alternation form returned all five files before the change and three after it.
+- **`CONTRIBUTING.md` describes a test run that can be performed**: the "Running Tests" section told contributors to `cd test/` and run `../src/validate-markdown-links.sh`. Neither the directory nor that file has ever existed in this repository, and the library is sourced by a wrapper rather than called. The section now says there is no test suite and shows the wrapper-based run instead. The JSON example in the same file used `--json`, which is not an option; the flag is `--output-format=json`.
+- **`docs/README.md` no longer points at a `test/` directory or a `--json` flag**, for the same two reasons.
+- **The document lengths in `docs/README.md` match the files**: they were roughly half the real values (`~100`/`~180`/`~300`/`~150` against 179/338/593/315 lines), and the total said `~650` where the four guides add up to 1425. The same applies to the two example wrappers in `docs/WRAPPER_SYSTEM.md`, listed as `~60` and `~150` lines against 90 and 225.
+- **The security audit history in `SECURITY.md` carries the years the releases happened**: it dated v1.0.0 to 2024-12 and v1.1.0 to 2025-01, one year before their tags (2025-12-31 and 2026-01-17).
+
+### Upgrade notes
+- **Wrappers that pass an alternation to `EXCLUDE_DIRS` will report fewer files and fewer links than before.** Those directories were being validated all along, so findings inside them disappear from the report and a pipeline that failed on them can turn green. Check the counts in the summary against the previous run before treating the change as a regression.
+
 ## [1.2.4] - 2026-08-28: Every release page carries a headline and the changelog section it belongs to
 
 ### Changed

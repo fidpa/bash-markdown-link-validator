@@ -12,8 +12,8 @@ This repository includes two example wrappers:
 
 | Example | Lines | Use Case |
 |---------|-------|----------|
-| [basic-wrapper.sh](../examples/basic-wrapper.sh) | ~60 | **Single directory** - validates one folder (e.g., `docs/`) |
-| [multi-area-wrapper.sh](../examples/multi-area-wrapper.sh) | ~150 | **Multiple directories** - iterates over several areas with aggregated results |
+| [basic-wrapper.sh](../examples/basic-wrapper.sh) | 90 | **Single directory** - validates one folder (e.g., `docs/`) |
+| [multi-area-wrapper.sh](../examples/multi-area-wrapper.sh) | 225 | **Multiple directories** - iterates over several areas with aggregated results |
 
 ### When to Use Which
 

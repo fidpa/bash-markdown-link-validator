@@ -40,12 +40,16 @@ cd bash-markdown-link-validator
 
 ### Running Tests
 
-```bash
-# Validate test fixtures
-cd test/
-bash ../src/validate-markdown-links.sh test-docs/
+There is no test suite and no fixture directory. The library is sourced by a
+wrapper, never called directly, so a change is exercised by running a wrapper
+over real documentation. The quickest one is the repository's own:
 
-# Expected: 0 broken links
+```bash
+cp examples/basic-wrapper.sh ./validate-docs-wrapper.sh
+# point AREA_DIR and DOCS_DIR at the directory you want to check, then:
+./validate-docs-wrapper.sh
+
+# Expected: 0 broken links, exit code 0
 ```
 
 ---
@@ -180,7 +184,7 @@ Closes #[issue number]
 EXCLUDE_DIRS="archive|deprecated" ./validate-docs-wrapper.sh
 
 # Test JSON output
-./src/validate-markdown-links.sh docs/ --json
+./validate-docs-wrapper.sh --output-format=json
 ```
 
 ### Test Checklist

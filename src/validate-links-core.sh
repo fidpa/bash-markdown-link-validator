@@ -4,7 +4,7 @@
 # https://github.com/fidpa/bash-markdown-link-validator
 #
 # validate-links-core.sh - Link Validation Library
-# Version: 1.2.4
+# Version: 1.2.5
 # shellcheck disable=SC2034  # Exported variables used by callers
 #
 # Features:
@@ -1044,7 +1044,10 @@ find_markdown_files() {
     local exclude_dirs="$2"
 
     if [[ -n "$exclude_dirs" ]]; then
-        find "$area_dir" -name "*.md" -type f 2>/dev/null | grep -v "/$exclude_dirs/" | sort
+        # -E: EXCLUDE_DIRS is documented as a regex, and the alternation form
+        # "archive|deprecated" is the one every example uses. Without -E the
+        # pipe is a literal character and nothing is excluded at all.
+        find "$area_dir" -name "*.md" -type f 2>/dev/null | grep -vE "/($exclude_dirs)/" | sort
     else
         find "$area_dir" -name "*.md" -type f 2>/dev/null | sort
     fi

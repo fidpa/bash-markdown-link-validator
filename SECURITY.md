@@ -116,8 +116,8 @@ Instead, report via:
 
 | Date | Version | Type | Summary |
 |------|---------|------|---------|
-| 2025-01 | v1.1.0 | Internal Review | No vulnerabilities found |
-| 2024-12 | v1.0.0 | Initial Release | Baseline security assessment |
+| 2026-01 | v1.1.0 | Internal Review | No vulnerabilities found |
+| 2025-12 | v1.0.0 | Initial Release | Baseline security assessment |
 
 ---
 

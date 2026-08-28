@@ -37,7 +37,7 @@ This directory contains detailed documentation for installation, usage, and trou
 ## 📖 Document Summaries
 
 ### QUICK_START.md
-**Length**: ~100 lines | **Difficulty**: Beginner
+**Length**: 179 lines | **Difficulty**: Beginner
 
 - Installation methods
 - Basic usage examples
@@ -45,7 +45,7 @@ This directory contains detailed documentation for installation, usage, and trou
 - First validation run
 
 ### WRAPPER_SYSTEM.md
-**Length**: ~180 lines | **Difficulty**: Intermediate
+**Length**: 338 lines | **Difficulty**: Intermediate
 
 - Multi-area validation patterns
 - DRY principle implementation
@@ -53,7 +53,7 @@ This directory contains detailed documentation for installation, usage, and trou
 - Production examples (11 active deployments)
 
 ### API_REFERENCE.md
-**Length**: ~300 lines | **Difficulty**: Advanced
+**Length**: 593 lines | **Difficulty**: Advanced
 
 - Function signatures
 - Configuration variables
@@ -61,7 +61,7 @@ This directory contains detailed documentation for installation, usage, and trou
 - Integration patterns
 
 ### TROUBLESHOOTING.md
-**Length**: ~150 lines | **Difficulty**: All Levels
+**Length**: 315 lines | **Difficulty**: All Levels
 
 - Common issues and solutions
 - Anchor resolution edge cases
@@ -101,13 +101,13 @@ cat docs/QUICK_START.md
 
 ### For Advanced Users
 - **Wrapper System**: See [WRAPPER_SYSTEM.md](WRAPPER_SYSTEM.md) for DRY patterns
-- **CI/CD Integration**: Use `--json` flag for machine-readable output
+- **CI/CD Integration**: Use `--output-format=json` for machine-readable output
 - **Performance**: Adjust `PARALLEL_JOBS` in wrapper scripts
 
 ### For Developers
 - **API Reference**: See [API_REFERENCE.md](API_REFERENCE.md) for function details
 - **Contributing**: Read [../CONTRIBUTING.md](../CONTRIBUTING.md) before submitting PRs
-- **Testing**: Check `test/` directory for fixtures
+- **Testing**: There is no test suite. Run a wrapper over your own documentation, and see [CONTRIBUTING.md](../CONTRIBUTING.md) for the checks a change has to pass
 
 ---
 
@@ -116,9 +116,9 @@ cat docs/QUICK_START.md
 | Metric | Value |
 |--------|-------|
 | **Total Documents** | 4 |
-| **Total Lines** | ~650 |
+| **Total Lines** | 1425 |
 | **Average Read Time** | 5-10 minutes each |
-| **Last Updated** | 2025-01-21 |
+| **Last Updated** | 2026-08-28 |
 
 ---
 
