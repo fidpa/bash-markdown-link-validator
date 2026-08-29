@@ -79,6 +79,12 @@ Complete function reference for the link validation library (20+ functions).
 | `WARN_DEEP_PATHS` | bool | true | Deep path warnings |
 | `MAX_PATH_DEPTH` | int | 5 | Max ../ levels |
 
+**`LINK_PATTERN`** (read-only, set by the library) is the extended regular
+expression deciding which links the scanners look at: a target containing `.md`,
+or a directory link ending in `/`. Colons are excluded from the directory
+alternative so that external URLs are not pulled in. Overriding it is not
+supported; it is guarded against a second `source` like `SCRIPT_VERSION`.
+
 ### Counters (managed by library)
 
 | Variable | Type | Description |
@@ -388,7 +394,13 @@ warned external link as internal.
 **Directory Links**:
 A link whose target is a directory containing a `README.md` (`[systemd](../reference/systemd/)`)
 resolves to that `README.md`, the file a Markdown renderer shows for it. A directory
-without a `README.md` stays a broken link.
+without a `README.md` stays a broken link, reported as `Directory has no README.md`
+and typed `directory_without_readme` in the JSON output, so that it can be told
+apart from a path that does not exist at all.
+
+Before v1.6.0 the scanners reached this branch only for directories whose name
+happened to satisfy the extraction pattern; see `LINK_PATTERN` under Global
+Variables.
 
 **Skipped Links**:
 - `https://`, `http://`, `ftp://`, `mailto:`
@@ -585,7 +597,8 @@ Success rate: 92%
     "success_rate": 97
   },
   "broken_links": [
-    {"file": "...", "line": 42, "link": "...", "type": "file_not_found"}
+    {"file": "...", "line": 42, "link": "...", "type": "file_not_found"},
+    {"file": "...", "line": 51, "link": "...", "type": "directory_without_readme"}
   ],
   "warnings": [
     {"file": "...", "line": 15, "link": "...", "type": "anchor_not_found"}

@@ -28,6 +28,7 @@ listed under [What it does not check](#-what-it-does-not-check).
 
 - **Zero external dependencies** - Bash 4.0+ plus `grep`, `sed` and `find`. No npm, pip or cargo.
 - **Anchor resolution beyond exact match** - Lowercasing, umlaut transliteration and GitHub's punctuation rule, then exact match, numbered-section match (`#25-x` finds `#2-5-x`) and suffix match (`#prepared-statements` finds `#2-3-prepared-statements`)
+- **Directory links resolve to the landing page** - `[systemd](systemd/)` is checked against `systemd/README.md`, the file GitHub shows for such a link. A directory without one is reported as broken, with `Directory has no README.md` rather than `File not found`
 - **Code blocks are skipped** - Links inside fenced blocks and inline code spans are not validated, so a documented example never fails the run
 - **Parallel processing** - `-j N`, default 2
 - **JSON output** - `--output-format=json` for CI pipelines; quotes, backslashes and control characters in paths are escaped
@@ -46,12 +47,10 @@ pattern is not validated:
   ever leaves the machine, so a dead web link stays invisible here. A tool that
   does fetch them, lychee for instance, runs alongside this one without conflict.
 - **Links whose target is not a Markdown file never reach the validator.**
-  `[script](install.sh)` and `[logo](logo.png)` are dropped by the extraction
-  pattern in `scan_file()`, which looks for `.md` in the target. This README is
-  its own example: a run over this repository counts four links in it, the ones
-  pointing at `docs/`. Directory links are covered only when the directory name
-  itself matches that pattern, so `[systemd](systemd/)` is checked and resolves
-  to its `README.md` while `[network](network/)` is passed over.
+  `[script](install.sh)` and `[logo](logo.png)` are dropped by `LINK_PATTERN`,
+  which admits two shapes: a target containing `.md`, and a directory link
+  ending in `/`. This README is its own example: a run over this repository
+  counts four links in it, the ones pointing at `docs/`.
 - **A missing anchor is a warning, not a failure.** If the file exists but the
   heading does not, the link counts as valid and `exit_with_status()` still
   returns 0. Only a missing *file* produces exit code 1. If CI should fail on

@@ -21,7 +21,7 @@ set -uo pipefail  # NO set -e!
 # sourced by a wrapper and a wrapper may source it more than once; a second
 # `readonly` on the same name writes an error to stderr, which would end up in
 # the JSON stream.
-[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.5.0"
+[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.6.0"
 
 # ============================================================================
 # GLOBAL VARIABLES (Exported for background jobs)
@@ -59,6 +59,25 @@ FIX_PATTERN=${FIX_PATTERN:-""}        # OLD_PATH:NEW_PATH for batch fix
 AUTO_TODO=${AUTO_TODO:-false}         # Auto-mark missing files as TODO
 WARN_DEEP_PATHS=${WARN_DEEP_PATHS:-true}  # Warn on deep relative paths
 MAX_PATH_DEPTH=${MAX_PATH_DEPTH:-5}   # Max ../ levels before warning
+
+# Which links the scanners even look at, as an extended regular expression.
+# Two alternatives, and both halves earn their keep:
+#   [^)]*\.md[^)]*      a Markdown target. The dot is escaped: unescaped it
+#                       matched any character, so "amd-logo.png" was scanned as
+#                       if it were Markdown and "notes-md-draft.txt" likewise.
+#   [^):]*/(#[^)]*)?    a directory link such as [systemd](systemd/), which
+#                       validate_link() resolves to the directory's README.md.
+#                       Excluding the colon keeps "https://example.com/" out:
+#                       an external URL has no filesystem target, and pulling
+#                       every one of them in would inflate the skipped count.
+# Before this pattern existed as a constant, the two scanners each carried
+# their own copy of it, and a directory link was only ever scanned when the
+# directory name happened to contain the unescaped dot's match ("systemd" via
+# "emd"), which is why the rule was impossible to explain.
+# Guarded like SCRIPT_VERSION: a wrapper may source the library twice, and a
+# second readonly on the same name writes to stderr, which in JSON mode lands
+# in the middle of the output somebody parses.
+[[ -v LINK_PATTERN ]] || readonly LINK_PATTERN='\[[^]]*\]\(([^)]*\.md[^)]*|[^):]*/(#[^)]*)?)\)'
 
 # JSON output buffer
 declare -ga JSON_RESULTS=()
@@ -480,18 +499,29 @@ validate_link() {
             fi
         fi
 
+        # A directory that exists but carries no README.md is broken for a
+        # different reason than a path that is not there at all, and the reader
+        # fixing it needs to know which: one wants a landing page, the other a
+        # corrected path. "File not found: empty/" said neither.
+        local failure="file_not_found"
+        local reason="File not found"
+        if [[ -d "$target_path" ]]; then
+            failure="directory_without_readme"
+            reason="Directory has no README.md"
+        fi
+
         if [[ $OUTPUT_FORMAT != "json" ]]; then
             if [[ "$is_external" == true ]]; then
-                echo -e "  ${RED}❌${NC} Line $line_num: External link broken: $file_path"
+                echo -e "  ${RED}❌${NC} Line $line_num: External link broken ($reason): $file_path"
                 [[ $VERBOSE == true ]] && echo -e "      Resolved to: $target_path"
             else
-                echo -e "  ${RED}❌${NC} Line $line_num: File not found: $file_path"
+                echo -e "  ${RED}❌${NC} Line $line_num: $reason: $file_path"
                 [[ $VERBOSE == true ]] && echo -e "      Resolved to: $target_path"
             fi
         fi
 
         # Add to JSON buffer
-        [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$(json_escape "$source_file")\",\"line\":$line_num,\"link\":\"$(json_escape "$link")\",\"type\":\"file_not_found\"}")
+        [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$(json_escape "$source_file")\",\"line\":$line_num,\"link\":\"$(json_escape "$link")\",\"type\":\"$failure\"}")
         # 4 instead of 1 when the target lies outside AREA_DIR, so that the
         # caller can count a broken link towards internal or external as well.
         [[ "$is_external" == true ]] && return 4
@@ -599,7 +629,7 @@ scan_file() {
 
     # Process each line with links (non-greedy link text match)
     local grep_output
-    grep_output=$(grep -n '\[[^]]*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
+    grep_output=$(grep -nE "$LINK_PATTERN" "$file" 2>/dev/null || true)
 
     # Lines inside fenced code blocks (skipped - example content, not real links)
     local cb_lines
@@ -613,7 +643,7 @@ scan_file() {
 
             # Extract links from this line (strip inline-code spans first)
             local links
-            links=$(strip_inline_code "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
+            links=$(strip_inline_code "$line_content" | grep -oE "$LINK_PATTERN" | \
                 sed 's/.*](\([^)]*\)).*/\1/' || true)
 
             # Validate each link
@@ -722,7 +752,7 @@ scan_file_parallel() {
 
     # Process each line with links (non-greedy link text match)
     local grep_output
-    grep_output=$(grep -n '\[[^]]*\]([^)]*.md[^)]*)' "$file" 2>/dev/null || true)
+    grep_output=$(grep -nE "$LINK_PATTERN" "$file" 2>/dev/null || true)
 
     # Lines inside fenced code blocks (skipped - example content, not real links)
     local cb_lines
@@ -736,7 +766,7 @@ scan_file_parallel() {
 
             # Extract links from this line (strip inline-code spans first)
             local links
-            links=$(strip_inline_code "$line_content" | grep -o '\[[^]]*\]([^)]*.md[^)]*)' | \
+            links=$(strip_inline_code "$line_content" | grep -oE "$LINK_PATTERN" | \
                 sed 's/.*](\([^)]*\)).*/\1/' || true)
 
             # Validate each link

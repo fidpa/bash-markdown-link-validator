@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-08-29: Directory links are checked because the pattern says so, not because the name happens to match
+
+### Fixed
+- **The extraction pattern means what it says**: both scanners looked for links with `grep '\[[^]]*\]([^)]*.md[^)]*)'`, in which the dot is unescaped and therefore matches any character. `[logo](img/amd-logo.png)` was scanned as if it were Markdown, `[notes](notes-md-draft.txt)` likewise, and the directory resolution added in v1.4.0 was reachable only when the directory name itself satisfied the accident: `[systemd](systemd/)` matched through "emd" and was checked, `[network](network/)` was never looked at. Measured over the documentation tree the library grew up in: of 1189 directory links, 18 were being checked. The pattern now lives in one place as the read-only `LINK_PATTERN` and admits two shapes deliberately, a target containing `.md` and a directory link ending in `/`; colons are excluded from the second so that external URLs are not pulled in.
+- **A directory without a landing page says so**: such a link was reported as `File not found: empty/`, which sends the reader looking for a path that is in fact there. It is now `Directory has no README.md`, typed `directory_without_readme` in the JSON output and counted exactly as before. Found by the library on its own repository: `docs/README.md` linked to `../examples/`, a directory that had no `README.md` until this release.
+
+### Added
+- **`examples/README.md`**: the examples directory now has the landing page its own documentation linked to, naming which wrapper covers which case and pointing at `docs/WRAPPER_SYSTEM.md` for the pattern behind them.
+
+### Changed
+- **`docs/API_REFERENCE.md` documents `LINK_PATTERN`** under Global Variables, notes the new JSON error type next to `file_not_found`, and states plainly that the directory branch was mostly unreachable before this release. `README.md` moves directory resolution from the list of limits into the feature list, where it now belongs.
+
+### Upgrade notes
+- **A run will report more broken links than before, and a green pipeline can turn red.** Nothing became stricter: links that were always broken are now visible, because the scanners finally look at them. Measured over a 4358-file documentation tree: 18211 links checked before against 19054 after, and 534 broken findings before against 613 after. Of the 843 links that came into view, 764 were fine. The new findings are directory links pointing at a directory that does not exist, or at one without a `README.md`.
+- **`Skipped external URLs` drops.** In the same run it went from 61 to 18. External URLs were never fetched; the count previously included any URL whose text happened to satisfy the unescaped dot, and now covers only URLs that really do end in `.md`.
+- **Two error strings changed** for anyone grepping the text output: `File not found` still applies to a path that is not there, while a directory that exists without a `README.md` now reports `Directory has no README.md`. In JSON, `type` is `directory_without_readme` for that case.
+
 ## [1.5.0] - 2026-08-29: The internal/external counts add up, the JSON parses, and the README names its limits
 
 ### Fixed
