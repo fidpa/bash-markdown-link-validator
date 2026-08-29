@@ -20,6 +20,7 @@ Complete function reference for the link validation library (20+ functions).
 | `warm_anchor_cache()` | Cache | - | Pre-build anchor cache |
 | `escape_sed_pattern()` | Security | ✅ | Escape string for sed pattern |
 | `escape_sed_replacement()` | Security | ✅ | Escape string for sed replacement |
+| `json_escape()` | Security | ✅ | Escape string for a JSON string literal |
 | `apply_batch_fix()` | Fix | ✅ | Batch-fix for link patterns |
 | `mark_as_todo()` | Fix | ✅ | Auto-TODO for missing files |
 | `resolve_relative_path()` | Path | ✅ | Relative path resolution |
@@ -87,8 +88,10 @@ Complete function reference for the link validation library (20+ functions).
 | `valid_links` | int | Valid links |
 | `broken_links` | int | Broken links |
 | `warnings` | int | Warnings |
-| `total_links_internal` | int | Internal links |
-| `total_links_external` | int | External links |
+| `total_links_internal` | int | Links whose target lies inside `AREA_DIR`, valid or not |
+| `total_links_external` | int | Links whose target lies outside `AREA_DIR`, valid or not |
+| `valid_links_internal` | int | Valid share of `total_links_internal` |
+| `valid_links_external` | int | Valid share of `total_links_external` |
 | `deep_path_warnings` | int | Deep path warnings |
 | `auto_todo_fixes` | int | Auto-TODO fixes |
 
@@ -327,6 +330,27 @@ escape_sed_replacement <input>
 
 ---
 
+### json_escape()
+
+**Purpose**: Escape a string for use inside a JSON string literal.
+
+**Signature**:
+```bash
+json_escape <input>
+```
+
+**Returns**: Escaped string (stdout)
+
+**Escapes**: `\` and `"`, plus tab, carriage return and newline. The backslash
+is doubled first, so that the backslash introduced by the quote escape is not
+escaped a second time.
+
+**Used by**: `print_json_report()` for `AREA_NAME`, and every entry pushed into
+`JSON_BROKEN_LINKS`, `JSON_WARNINGS` and `JSON_DEEP_PATHS`. A path containing a
+quote used to produce output that no JSON parser would accept.
+
+---
+
 ## ✅ Validation Functions
 
 ### validate_link()
@@ -349,9 +373,17 @@ validate_link <source_file> <link> <line_num>
 | Code | Meaning |
 |------|---------|
 | `0` | Internal link valid |
-| `1` | Link broken |
-| `2` | Warning (anchor not found, but file exists) |
+| `1` | Internal link broken |
+| `2` | Internal warning (anchor not found, but file exists) |
 | `3` | External link valid |
+| `4` | External link broken |
+| `5` | External warning (anchor not found, but file exists) |
+
+"External" means the resolved target lies outside `AREA_DIR`. Codes `3`, `4` and
+`5` therefore share one rule: `result >= 3` is the scope test, `0`/`3` are valid,
+`2`/`5` are warnings and everything else is broken. Callers written against the
+older three-code contract keep working for valid links but count a broken or
+warned external link as internal.
 
 **Directory Links**:
 A link whose target is a directory containing a `README.md` (`[systemd](../reference/systemd/)`)
@@ -542,13 +574,14 @@ Success rate: 92%
     "area": "reference",
     "total_files": 563,
     "total_links": 2822,
-    "internal_links": 1768,
+    "internal_links": 1921,
     "external_links": 901,
     "valid_links": 2747,
     "broken_links": 75,
     "warnings": 12,
     "deep_path_warnings": 3,
     "auto_todo_fixes": 0,
+    "skipped_external_urls": 44,
     "success_rate": 97
   },
   "broken_links": [

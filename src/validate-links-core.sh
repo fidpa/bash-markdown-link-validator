@@ -21,7 +21,7 @@ set -uo pipefail  # NO set -e!
 # sourced by a wrapper and a wrapper may source it more than once; a second
 # `readonly` on the same name writes an error to stderr, which would end up in
 # the JSON stream.
-[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.4.0"
+[[ -v SCRIPT_VERSION ]] || readonly SCRIPT_VERSION="1.5.0"
 
 # ============================================================================
 # GLOBAL VARIABLES (Exported for background jobs)
@@ -108,6 +108,22 @@ sed_inplace() {
 # ============================================================================
 # ANCHOR HANDLING (Caching)
 # ============================================================================
+
+# Escape a string for use inside a JSON string literal. Without this a path or
+# link containing a quote, a backslash or a control character produced output
+# that no JSON parser would accept, which defeats the purpose of
+# --output-format=json in a CI pipeline. Order matters: the backslash has to be
+# doubled before the quote is escaped, otherwise the escaping backslash is
+# escaped again.
+json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\n'/\\n}"
+    printf '%s' "$s"
+}
 
 normalize_anchor() {
     local anchor="$1"
@@ -246,7 +262,7 @@ warn_deep_path() {
 
         # Add to JSON buffer if JSON output
         if [[ $OUTPUT_FORMAT == "json" ]]; then
-            JSON_DEEP_PATHS+=("{\"file\":\"$source_file\",\"line\":$line_num,\"link\":\"$link\",\"depth\":$depth}")
+            JSON_DEEP_PATHS+=("{\"file\":\"$(json_escape "$source_file")\",\"line\":$line_num,\"link\":\"$(json_escape "$link")\",\"depth\":$depth}")
         fi
     fi
 }
@@ -413,7 +429,7 @@ validate_link() {
         else
             [[ $OUTPUT_FORMAT != "json" ]] && echo -e "  ${RED}❌${NC} Line $line_num: Anchor not found: $link"
             # Add to JSON buffer
-            [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$source_file\",\"line\":$line_num,\"link\":\"$link\",\"type\":\"anchor\"}")
+            [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$(json_escape "$source_file")\",\"line\":$line_num,\"link\":\"$(json_escape "$link")\",\"type\":\"anchor\"}")
             return 1
         fi
     fi
@@ -475,7 +491,10 @@ validate_link() {
         fi
 
         # Add to JSON buffer
-        [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$source_file\",\"line\":$line_num,\"link\":\"$link\",\"type\":\"file_not_found\"}")
+        [[ $OUTPUT_FORMAT == "json" ]] && JSON_BROKEN_LINKS+=("{\"file\":\"$(json_escape "$source_file")\",\"line\":$line_num,\"link\":\"$(json_escape "$link")\",\"type\":\"file_not_found\"}")
+        # 4 instead of 1 when the target lies outside AREA_DIR, so that the
+        # caller can count a broken link towards internal or external as well.
+        [[ "$is_external" == true ]] && return 4
         return 1
     fi
 
@@ -483,7 +502,9 @@ validate_link() {
     if [[ -n "$anchor" ]]; then
         if ! validate_anchor_exists "$target_path" "$anchor"; then
             [[ $OUTPUT_FORMAT != "json" ]] && echo -e "  ${YELLOW}⚠️${NC}  Line $line_num: Anchor not found: $anchor in $file_path"
-            [[ $OUTPUT_FORMAT == "json" ]] && JSON_WARNINGS+=("{\"file\":\"$source_file\",\"line\":$line_num,\"link\":\"$link\",\"type\":\"anchor_not_found\"}")
+            [[ $OUTPUT_FORMAT == "json" ]] && JSON_WARNINGS+=("{\"file\":\"$(json_escape "$source_file")\",\"line\":$line_num,\"link\":\"$(json_escape "$link")\",\"type\":\"anchor_not_found\"}")
+            # 5 instead of 2 for the same reason as 4 above.
+            [[ "$is_external" == true ]] && return 5
             return 2  # Warning, not error
         fi
     fi
@@ -613,27 +634,47 @@ scan_file() {
                 validate_link "$file" "$link" "$line_num"
                 local result=$?
 
-                if [[ $result -eq 0 ]] || [[ $result -eq 3 ]]; then
-                    file_valid=$((file_valid + 1))
-                    valid_links=$((valid_links + 1))
+                # Scope first: 3, 4 and 5 mean the target lies outside
+                # AREA_DIR. Counting it here rather than inside the valid
+                # branch keeps "Internal + External" equal to "Total links";
+                # before this, a broken or warned link belonged to neither and
+                # the two lines of the report contradicted each other.
+                local is_ext=false
+                [[ $result -ge 3 ]] && is_ext=true
 
-                    # Track internal vs external
-                    if [[ $result -eq 3 ]]; then
-                        total_links_external=$((total_links_external + 1))
-                        valid_links_external=$((valid_links_external + 1))
-                    else
-                        total_links_internal=$((total_links_internal + 1))
-                        valid_links_internal=$((valid_links_internal + 1))
-                    fi
-                elif [[ $result -eq 2 ]]; then
-                    # Warning (anchor not found, but file exists)
-                    file_valid=$((file_valid + 1))
-                    valid_links=$((valid_links + 1))
-                    warnings=$((warnings + 1))
+                if [[ $is_ext == true ]]; then
+                    total_links_external=$((total_links_external + 1))
                 else
-                    file_broken=$((file_broken + 1))
-                    broken_links=$((broken_links + 1))
+                    total_links_internal=$((total_links_internal + 1))
                 fi
+
+                case $result in
+                    0|3)
+                        file_valid=$((file_valid + 1))
+                        valid_links=$((valid_links + 1))
+                        if [[ $is_ext == true ]]; then
+                            valid_links_external=$((valid_links_external + 1))
+                        else
+                            valid_links_internal=$((valid_links_internal + 1))
+                        fi
+                        ;;
+                    2|5)
+                        # Warning (anchor not found, but file exists): counts as
+                        # valid, as it always has, and now also in its scope.
+                        file_valid=$((file_valid + 1))
+                        valid_links=$((valid_links + 1))
+                        warnings=$((warnings + 1))
+                        if [[ $is_ext == true ]]; then
+                            valid_links_external=$((valid_links_external + 1))
+                        else
+                            valid_links_internal=$((valid_links_internal + 1))
+                        fi
+                        ;;
+                    *)
+                        file_broken=$((file_broken + 1))
+                        broken_links=$((broken_links + 1))
+                        ;;
+                esac
             done <<< "$links"
         done <<< "$grep_output"
     fi
@@ -671,6 +712,8 @@ scan_file_parallel() {
     local file_valid=0
     local file_internal=0
     local file_external=0
+    local file_valid_internal=0
+    local file_valid_external=0
     # Track warnings, deep_path, auto_todo locally (parallel mode fix)
     local file_warnings=0
     local file_deep_path=0
@@ -720,19 +763,30 @@ scan_file_parallel() {
                 # Append validation output
                 [[ -n "$validation_output" ]] && output+="$validation_output"$'\n'
 
-                if [[ $result -eq 0 ]] || [[ $result -eq 3 ]]; then
-                    file_valid=$((file_valid + 1))
-                    if [[ $result -eq 3 ]]; then
-                        file_external=$((file_external + 1))
-                    else
-                        file_internal=$((file_internal + 1))
-                    fi
-                elif [[ $result -eq 2 ]]; then
-                    file_valid=$((file_valid + 1))
-                    file_warnings=$((file_warnings + 1))  # Track warnings
+                # Same scope rule as in scan_file(): 3, 4 and 5 are external.
+                local is_ext=false
+                [[ $result -ge 3 ]] && is_ext=true
+
+                if [[ $is_ext == true ]]; then
+                    file_external=$((file_external + 1))
                 else
-                    file_broken=$((file_broken + 1))
+                    file_internal=$((file_internal + 1))
                 fi
+
+                case $result in
+                    0|3|2|5)
+                        file_valid=$((file_valid + 1))
+                        [[ $result -eq 2 || $result -eq 5 ]] && file_warnings=$((file_warnings + 1))
+                        if [[ $is_ext == true ]]; then
+                            file_valid_external=$((file_valid_external + 1))
+                        else
+                            file_valid_internal=$((file_valid_internal + 1))
+                        fi
+                        ;;
+                    *)
+                        file_broken=$((file_broken + 1))
+                        ;;
+                esac
             done <<< "$links"
         done <<< "$grep_output"
     fi
@@ -749,8 +803,9 @@ scan_file_parallel() {
     # Write stats to output file (single write operation)
     # Include warnings, deep_path, auto_todo, skipped_external in stats
     {
-        printf "STATS: files=1 links=%d valid=%d broken=%d internal=%d external=%d warnings=%d deep=%d todo=%d skipped=%d\n" \
+        printf "STATS: files=1 links=%d valid=%d broken=%d internal=%d external=%d vint=%d vext=%d warnings=%d deep=%d todo=%d skipped=%d\n" \
             "$file_links" "$file_valid" "$file_broken" "$file_internal" "$file_external" \
+            "$file_valid_internal" "$file_valid_external" \
             "$file_warnings" "$file_deep_path" "$file_auto_todo" "$file_skipped_external"
         printf "%s" "$output"
     } > "$output_file"
@@ -760,7 +815,7 @@ scan_file_parallel() {
 export -f scan_file_parallel validate_link resolve_relative_path normalize_anchor \
     build_anchor_index validate_anchor_exists count_path_depth warn_deep_path \
     normalize_relative_path apply_batch_fix mark_as_todo \
-    escape_sed_pattern escape_sed_replacement \
+    escape_sed_pattern escape_sed_replacement json_escape \
     compute_code_block_lines strip_inline_code
 
 # ============================================================================
@@ -782,13 +837,18 @@ aggregate_parallel_stats() {
         # Parse stats (POSIX-compatible)
         # Include warnings, deep, todo, skipped fields
         local file_files file_links file_valid file_broken file_internal file_external
-        local file_warnings file_deep file_todo file_skipped
+        local file_vint file_vext file_warnings file_deep file_todo file_skipped
         file_files=$(echo "$stats_line" | sed -n 's/.*files=\([0-9]*\).*/\1/p'); [[ -z "$file_files" ]] && file_files=0
         file_links=$(echo "$stats_line" | sed -n 's/.*links=\([0-9]*\).*/\1/p'); [[ -z "$file_links" ]] && file_links=0
         file_valid=$(echo "$stats_line" | sed -n 's/.*valid=\([0-9]*\).*/\1/p'); [[ -z "$file_valid" ]] && file_valid=0
         file_broken=$(echo "$stats_line" | sed -n 's/.*broken=\([0-9]*\).*/\1/p'); [[ -z "$file_broken" ]] && file_broken=0
         file_internal=$(echo "$stats_line" | sed -n 's/.*internal=\([0-9]*\).*/\1/p'); [[ -z "$file_internal" ]] && file_internal=0
         file_external=$(echo "$stats_line" | sed -n 's/.*external=\([0-9]*\).*/\1/p'); [[ -z "$file_external" ]] && file_external=0
+        # vint/vext are the valid links per scope. The names deliberately do not
+        # contain "internal="/"external=" as a substring: the patterns above are
+        # greedy and would otherwise latch onto the later field.
+        file_vint=$(echo "$stats_line" | sed -n 's/.*vint=\([0-9]*\).*/\1/p'); [[ -z "$file_vint" ]] && file_vint=0
+        file_vext=$(echo "$stats_line" | sed -n 's/.*vext=\([0-9]*\).*/\1/p'); [[ -z "$file_vext" ]] && file_vext=0
         file_warnings=$(echo "$stats_line" | sed -n 's/.*warnings=\([0-9]*\).*/\1/p'); [[ -z "$file_warnings" ]] && file_warnings=0
         file_deep=$(echo "$stats_line" | sed -n 's/.*deep=\([0-9]*\).*/\1/p'); [[ -z "$file_deep" ]] && file_deep=0
         file_todo=$(echo "$stats_line" | sed -n 's/.*todo=\([0-9]*\).*/\1/p'); [[ -z "$file_todo" ]] && file_todo=0
@@ -801,8 +861,8 @@ aggregate_parallel_stats() {
         broken_links=$((broken_links + file_broken))
         total_links_internal=$((total_links_internal + file_internal))
         total_links_external=$((total_links_external + file_external))
-        valid_links_internal=$((valid_links_internal + file_internal))
-        valid_links_external=$((valid_links_external + file_external))
+        valid_links_internal=$((valid_links_internal + file_vint))
+        valid_links_external=$((valid_links_external + file_vext))
         # Aggregate warnings, deep_path, auto_todo, skipped_external
         warnings=$((warnings + file_warnings))
         deep_path_warnings=$((deep_path_warnings + file_deep))
@@ -1009,11 +1069,8 @@ print_summary_report() {
     echo "========================================"
 }
 
-# JSON output format for CI/CD integration
-# TODO: Implement JSON escaping for CI/CD integration
-#   - Issue: Paths with ", \, newlines create invalid JSON
-#   - Solution: Add json_escape() function for all string fields
-#   - Affected: AREA_NAME, JSON_BROKEN_LINKS[], JSON_WARNINGS[], JSON_DEEP_PATHS[]
+# JSON output format for CI/CD integration. Every string field passes through
+# json_escape(); the numeric fields are counters and need no quoting.
 print_json_report() {
     local success_rate=0
     if [[ $total_links -gt 0 ]]; then
@@ -1023,7 +1080,7 @@ print_json_report() {
     cat <<EOF
 {
   "summary": {
-    "area": "$AREA_NAME",
+    "area": "$(json_escape "$AREA_NAME")",
     "total_files": $total_files,
     "total_links": $total_links,
     "internal_links": $total_links_internal,
